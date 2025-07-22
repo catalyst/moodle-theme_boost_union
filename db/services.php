@@ -15,19 +15,22 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Theme Boost Union - Version file
- *
- * @package    theme_boost_union
- * @copyright  2022 Alexander Bias, lern.link GmbH <alexander.bias@lernlink.de>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * Services
+ * @author    gthomas2
+ * @copyright Copyright (c) 2016 Open LMS (https://www.openlms.net)
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'theme_boost_union';
-$plugin->version = 2024060139.01;
-$plugin->release = 'v4.4-r24';
-$plugin->requires = 2024042206;
-$plugin->supported = [404, 404];
-$plugin->maturity = MATURITY_STABLE;
-$plugin->dependencies = ['theme_boost' => 2024042200];
+$functions = [
+    'theme_boost_union_block_myoverview_filters'              => [
+        'classname'       => 'theme_boost_union\\webservice\\ws_block_myoverview',
+        'methodname'      => 'service',
+        'description'     => 'Returns the list of courses from the filters applied in the course overview block',
+        'type'            => 'read',
+        'ajax'            => true,
+        'loginrequired'   => true,
+        'readonlysession' => true, // We don't modify the session.
+    ],
+];
