@@ -699,13 +699,115 @@ class smartmenu_item {
     }
 
     /**
+     * Split a comma-separated list of email addresses (optional whitespace around commas).
+     *
+     * @param string|null $raw The raw comma-separated string of email addresses.
+     * @return string[] An array of trimmed email addresses, or an empty array if the input is null or empty.
+     */
+    public static function parse_mailto_address_list(?string $raw): array {
+        // If the input is null or empty, return an empty array.
+        if ($raw === null || trim($raw) === '') {
+            return [];
+        }
+
+        // Split the string by commas, allowing for optional whitespace around the commas.
+        $parts = preg_split('/\s*,\s*/', $raw, -1, PREG_SPLIT_NO_EMPTY);
+
+        // Trim each part and filter out any empty strings that may result from consecutive commas or leading/trailing commas.
+        $addresses = [];
+        foreach ($parts as $part) {
+            $trimmed = trim($part);
+            if ($trimmed !== '') {
+                $addresses[] = $trimmed;
+            }
+        }
+
+        // Return the array of email addresses.
+        return $addresses;
+    }
+
+    /**
+     * Check whether every address in the list is valid for Moodle.
+     *
+     * @param string[] $addresses The list of email addresses to validate.
+     * @return bool True if all addresses are valid, false otherwise.
+     */
+    public static function validate_mailto_address_list(array $addresses): bool {
+        // Validate each address using Moodle's validate_email function.
+        foreach ($addresses as $addr) {
+            // If any address is invalid, return false.
+            if (!validate_email($addr)) {
+                return false;
+            }
+        }
+
+        // If we get here, all addresses are valid.
+        return true;
+    }
+
+    /**
+     * Build a mailto: URL (RFC 6068) with percent-encoded subject, body, cc, and bcc header fields.
+     *
+     * @param string $to Comma-separated To addresses
+     * @param string|null $cc Comma-separated Cc addresses
+     * @param string|null $bcc Comma-separated Bcc addresses
+     * @param string|null $subject Plain subject (encoded when building the URL)
+     * @param string|null $body Plain body (encoded when building the URL)
+     * @return string
+     */
+    public static function build_mailto_href(
+        string $to,
+        ?string $cc = null,
+        ?string $bcc = null,
+        ?string $subject = null,
+        ?string $body = null
+    ): string {
+        // Build the to part.
+        $toaddrs = self::parse_mailto_address_list($to);
+        $topart = implode(',', $toaddrs);
+
+        // Build the query part with cc, bcc, subject and body.
+        $queryparts = [];
+        $ccaddrs = self::parse_mailto_address_list($cc);
+        if (!empty($ccaddrs)) {
+            $queryparts[] = 'cc=' . rawurlencode(implode(',', $ccaddrs));
+        }
+        $bccaddrs = self::parse_mailto_address_list($bcc);
+        if (!empty($bccaddrs)) {
+            $queryparts[] = 'bcc=' . rawurlencode(implode(',', $bccaddrs));
+        }
+        if ($subject !== null && $subject !== '') {
+            $queryparts[] = 'subject=' . rawurlencode($subject);
+        }
+        if ($body !== null && $body !== '') {
+            $queryparts[] = 'body=' . rawurlencode($body);
+        }
+
+        // Combine the to part and query part to build the mailto URL.
+        $mailto = 'mailto:' . $topart;
+        if (!empty($queryparts)) {
+            $mailto .= '?' . implode('&', $queryparts);
+        }
+
+        // Return the built mailto URL.
+        return $mailto;
+    }
+
+    /**
      * Generate the item as mailto menu item.
      *
      * @return string
      */
     protected function generate_mailto_item() {
 
-        $mailto = 'mailto:' . $this->item->email;
+        // Build the mailto link from the item data.
+        $mailto = self::build_mailto_href(
+            $this->item->email,
+            $this->item->email_cc ?? null,
+            $this->item->email_bcc ?? null,
+            $this->item->email_subject ?? null,
+            $this->item->email_body ?? null
+        );
 
         return $this->generate_node_data(
             $this->item->title, // Title.
@@ -1522,6 +1624,17 @@ class smartmenu_item {
             if (isset($data[$fieldid])) {
                 $data = $data[$fieldid];
                 $data->instance_form_definition($mform);
+
+                // Check if the element was actually added to the form.
+                // When a custom field is not visible in course settings, it won't be added.
+                // In this case, getElement() returns a PEAR_Error instead of a form element.
+                // This happened before with the customfield_semester | visibleincoursesettings setting
+                // of customfield_semester.
+                // See https://github.com/moodle-an-hochschulen/moodle-theme_boost_union/issues/1164 for details.
+                if (!$mform->elementExists("customfield_" . $shortname)) {
+                    continue;
+                }
+
                 $elem = $mform->getElement("customfield_" . $shortname);
                 // If this field is a textarea, we'll remove the element and re-add
                 // it in a group as textareas can't be conditionally hidden due to a limitation in Moodle core.
@@ -1754,6 +1867,17 @@ class smartmenu_item {
         global $DB;
 
         $record = $formdata;
+
+        // Do not persist mailto-only fields for other menu item types.
+        // While the values should be stored as null by default for other types as well,
+        // this is a measure to ensure that no mailto values are stored for other types in any case..
+        if ($record->type != self::TYPEMAILTO) {
+            $record->email = null;
+            $record->email_cc = null;
+            $record->email_bcc = null;
+            $record->email_subject = null;
+            $record->email_body = null;
+        }
 
         // Convert the multiple valueable item types to JSON.
         $record->category = json_encode($formdata->category);

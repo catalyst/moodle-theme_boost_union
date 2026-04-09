@@ -193,7 +193,7 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
       | left top      | 0% 0%    |
 
   @javascript
-  Scenario: Setting: Brand color - Set the brand color
+  Scenario: Setting: Primary brand color - Set the primary brand color
     Given the following config values are set as admin:
       | config     | value   | plugin            |
       | brandcolor | #FF0000 | theme_boost_union |
@@ -205,6 +205,70 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
     And I am on "Course 1" course homepage
     And I should see "My test text"
     Then DOM element ".mytesttext" should have computed style "color" "rgb(255, 0, 0)"
+
+  @javascript
+  Scenario Outline: Setting: Branded gray tones - Set the branded gray tones setting
+    Given the following config values are set as admin:
+      | config           | value              | plugin            |
+      | brandcolor       | #FF0000            | theme_boost_union |
+      | brandedgraytones | <brandedgraytones> | theme_boost_union |
+    And the following "activities" exist:
+      | activity | name      | intro                                                       | course |
+      | label    | Label one | <span class="mytesttext text-secondary">My test text</span> | C1     |
+    And the theme cache is purged and the theme is reloaded
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test text"
+    Then DOM element ".mytesttext" should have computed style "color" "<expectedcolor>"
+
+    Examples:
+      | brandedgraytones | expectedcolor      |
+      | yes              | rgb(195, 182, 182) |
+      |                  | rgb(206, 212, 218) |
+
+  @javascript
+  Scenario Outline: Setting: Link color - Set the link color
+    Given the following config values are set as admin:
+      | config     | value       | plugin            |
+      | brandcolor | #FF0000     | theme_boost_union |
+      | linkcolor  | <linkcolor> | theme_boost_union |
+    And the following "activities" exist:
+      | activity | name      | intro                                                               | course |
+      | label    | Label one | <a href="#" class="mytestlink">My test link</a>                     | C1     |
+      | label    | Label two | <a href="#" class="mytestbutton btn btn-primary">My test button</a> | C1     |
+    And the theme cache is purged and the theme is reloaded
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test link"
+    Then DOM element ".mytestlink" should have computed style "color" "<expectedcolor>"
+    And DOM element ".mytestbutton" should have computed style "background-color" "rgb(255, 0, 0)"
+
+    Examples:
+      | linkcolor | expectedcolor  |
+      | #00FF00   | rgb(0, 255, 0) |
+      |           | rgb(255, 0, 0) |
+
+  @javascript
+  Scenario Outline: Setting: Button brand color - Set the button brand color
+    Given the following config values are set as admin:
+      | config           | value              | plugin            |
+      | brandcolor       | #FF0000            | theme_boost_union |
+      | buttonbrandcolor | <buttonbrandcolor> | theme_boost_union |
+    And the following "activities" exist:
+      | activity | name      | intro                                                               | course |
+      | label    | Label one | <a href="#" class="mytestlink">My test link</a>                     | C1     |
+      | label    | Label two | <a href="#" class="mytestbutton btn btn-primary">My test button</a> | C1     |
+    And the theme cache is purged and the theme is reloaded
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test button"
+    Then DOM element ".mytestbutton" should have computed style "background-color" "<expectedcolor>"
+    And DOM element ".mytestlink" should have computed style "color" "rgb(255, 0, 0)"
+
+    Examples:
+      | buttonbrandcolor | expectedcolor  |
+      | #00FF00          | rgb(0, 255, 0) |
+      |                  | rgb(255, 0, 0) |
 
   @javascript
   Scenario Outline: Setting: Bootstrap colors - Set the Bootstrap colors
@@ -249,6 +313,25 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
       |         | should not  | 50px  |
       | 50px    | should      | 50px  |
       | 13%     | should      | 13%   |
+
+  @javascript
+  Scenario Outline: Setting: Maximal width of sitename in navbar - Set the maximum width
+    Given the following config values are set as admin:
+      | config            | value     | plugin            |
+      | maxsitenamewidth  | <setting> | theme_boost_union |
+    And the theme cache is purged and the theme is reloaded
+    When I log in as "admin"
+    And I change viewport size to "<viewport>"
+    And I am on site homepage
+    Then DOM element ".navbar-brand .sitename" <widthshouldornot> have computed style "max-width" "<value>"
+    And DOM element ".navbar-brand .sitename" <truncshouldornot> have computed style "text-overflow" "ellipsis"
+
+    Examples:
+      | setting | viewport | widthshouldornot | truncshouldornot | value |
+      |         | 768x1024 | should not       | should not       | 200px |
+      | 200px   | 768x1024 | should           | should           | 200px |
+      | 200px   | 375x667  | should not       | should           | 200px |
+      | 200px   | 1024x768 | should not       | should           | 200px |
 
   Scenario Outline: Setting: Navbar color - Set the navbar color
     Given the following config values are set as admin:

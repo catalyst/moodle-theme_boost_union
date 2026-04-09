@@ -597,32 +597,481 @@ class core_renderer extends \theme_boost\output\core_renderer {
             ['context' => context_course::instance(SITEID), "escape" => false]
         );
 
-        // Check if the local login form is enabled.
+        // Shibboleth internal WAYF: If the Boost Union setting is enabled and if Shibboleth authentication is enabled,
+        // replace the Shibboleth IdP button with the IdP selector.
+        $loginshibbolethinternalwayf = get_config('theme_boost_union', 'loginshibbolethinternalwayf');
+        if (
+            $loginshibbolethinternalwayf !== false &&
+                $loginshibbolethinternalwayf === THEME_BOOST_UNION_SETTING_SELECT_YES &&
+                strpos($CFG->auth, 'shibboleth') !== false &&
+                !empty($context->identityproviders)
+        ) {
+            // Require Shibboleth library.
+            require_once($CFG->dirroot . '/auth/shibboleth/auth.php');
+
+            // Get the Shibboleth authentication plugin config.
+            get_auth_plugin('shibboleth');
+            $shibconfig = get_config('auth_shibboleth');
+
+            // Only show the internal WAYF if the user attribute for IdP selection and the organization selection
+            // are configured in Shibboleth.
+            if (!empty($shibconfig->user_attribute) && !empty($shibconfig->organization_selection)) {
+                // Get the list of IdPs from Shibboleth and check if there are any IdPs configured.
+                $idplist = get_idp_list($shibconfig->organization_selection);
+                if (!empty($idplist)) {
+                    // Compose the WAYF data.
+                    // This logic is copied and modified from /auth/shibboleth/login.php.
+                    $selectedidp = '-';
+                    if (isset($_COOKIE['_saml_idp'])) {
+                        $idpcookie = generate_cookie_array($_COOKIE['_saml_idp']);
+                        do {
+                            $selectedidp = array_pop($idpcookie);
+                        } while (!isset($idplist[$selectedidp]) && count($idpcookie) > 0);
+                    }
+                    $shibbidps = [];
+                    foreach ($idplist as $value => $data) {
+                        $name = reset($data);
+                        $shibbidps[] = [
+                            'name' => $name,
+                            'value' => $value,
+                            'selected' => $value === $selectedidp,
+                        ];
+                    }
+                    $shibbolethloginurl = (new moodle_url('/auth/shibboleth/login.php'))->out(false);
+                    $adminemail = get_admin()->email;
+                    foreach ($context->identityproviders as $idx => $idp) {
+                        $idpurl = $idp['url'] ?? '';
+                        if (strpos($idpurl, '/auth/shibboleth/index.php') !== false) {
+                            $context->identityproviders[$idx]['useinternalwayf'] = true;
+                            $context->identityproviders[$idx]['shibbidps'] = $shibbidps;
+                            $context->identityproviders[$idx]['shibbolethloginurl'] = $shibbolethloginurl;
+                            $context->identityproviders[$idx]['adminemail'] = $adminemail;
+                            $context->identityproviders[$idx]['wayfformid'] = 'login-shibboleth-wayf-' . $idx;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Compute show* flags for all four login types (theme setting + Moodle core).
+        // Visibility is controlled in the template via these show* parameters.
+
+        // Local login: theme setting only.
         $loginlocalloginsetting = get_config('theme_boost_union', 'loginlocalloginenable');
-        $showlocallogin = ($loginlocalloginsetting != false) ? $loginlocalloginsetting : THEME_BOOST_UNION_SETTING_SELECT_YES;
-        if ($showlocallogin == THEME_BOOST_UNION_SETTING_SELECT_YES) {
-            // Add marker to show the local login form to template context.
-            $context->showlocallogin = true;
+        $showlocalloginenabled = ($loginlocalloginsetting != false)
+            ? $loginlocalloginsetting
+            : THEME_BOOST_UNION_SETTING_SELECT_YES;
+        $context->showlocallogin = ($showlocalloginenabled == THEME_BOOST_UNION_SETTING_SELECT_YES);
+
+        // IDP login: theme setting AND core has identity providers.
+        $loginidploginenablesetting = get_config('theme_boost_union', 'loginidploginenable');
+        $showidploginenabled = ($loginidploginenablesetting != false)
+            ? $loginidploginenablesetting
+            : THEME_BOOST_UNION_SETTING_SELECT_YES;
+        $context->showidplogin = ($showidploginenabled == THEME_BOOST_UNION_SETTING_SELECT_YES) &&
+            !empty($context->hasidentityproviders) &&
+            !empty($context->identityproviders);
+
+        // Guest login: theme setting AND Moodle core guest login button enabled.
+        $loginguestloginenablesetting = get_config('theme_boost_union', 'loginguestloginenable');
+        $showguestloginenabled = ($loginguestloginenablesetting != false) ?
+            $loginguestloginenablesetting : THEME_BOOST_UNION_SETTING_SELECT_YES;
+        $coreguestloginbutton = !empty(get_config('core', 'guestloginbutton'));
+        $context->showguestlogin = ($showguestloginenabled == THEME_BOOST_UNION_SETTING_SELECT_YES) &&
+            $coreguestloginbutton &&
+            !empty($context->canloginasguest);
+
+        // Self registration: theme setting AND Moodle core registerauth configured.
+        $loginselfregistrationenablesetting = get_config('theme_boost_union', 'loginselfregistrationenable');
+        $showselfregistrationenabled = ($loginselfregistrationenablesetting != false) ?
+            $loginselfregistrationenablesetting : THEME_BOOST_UNION_SETTING_SELECT_YES;
+        $coreregisterauth = !empty(get_config('core', 'registerauth'));
+        $context->showselfregistration = ($showselfregistrationenabled == THEME_BOOST_UNION_SETTING_SELECT_YES)
+            && $coreregisterauth
+            && !empty($context->cansignup);
+
+        // Compute intro and instruction settings, but only when the corresponding login type is shown.
+
+        // Local login.
+        if ($context->showlocallogin) {
+            $loginlocalshowintrosetting = get_config('theme_boost_union', 'loginlocalshowintro');
+            $showlocalloginintro = ($loginlocalshowintrosetting != false) ?
+                $loginlocalshowintrosetting : THEME_BOOST_UNION_SETTING_SELECT_NO;
+            if ($showlocalloginintro == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+                $context->showlocalloginintro = true;
+                $loginlocalintrotext = get_config('theme_boost_union', 'loginlocalintrotext');
+                if (!empty($loginlocalintrotext)) {
+                    $context->localloginintrotext = format_string($loginlocalintrotext);
+                }
+            }
+            $loginlocalshowinstructionsetting = get_config('theme_boost_union', 'loginlocalshowinstruction');
+            $showlocallogininstruction = ($loginlocalshowinstructionsetting != false) ?
+                $loginlocalshowinstructionsetting : THEME_BOOST_UNION_SETTING_SELECT_NO;
+            if ($showlocallogininstruction == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+                $loginlocalinstructions = get_config('theme_boost_union', 'loginlocalinstructioncontent');
+                if (isset($loginlocalinstructions) && !empty($loginlocalinstructions)) {
+                    $context->showlocallogininstruction = true;
+                    $context->locallogininstructions = format_text($loginlocalinstructions, FORMAT_HTML);
+                    $loginlocalinstructionposition = get_config('theme_boost_union', 'loginlocalinstructionposition');
+                    $context->locallogininstructionposition = ($loginlocalinstructionposition === false) ?
+                        THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN : $loginlocalinstructionposition;
+                    $context->locallogininstructionsbetween =
+                        ($context->locallogininstructionposition === THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN);
+                    $context->locallogininstructionsbelow =
+                        ($context->locallogininstructionposition === THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BELOW);
+                }
+            }
         }
 
-        // Check if the local login intro is enabled.
-        $loginlocalshowintrosetting = get_config('theme_boost_union', 'loginlocalshowintro');
-        $showlocalloginintro = ($loginlocalshowintrosetting != false) ?
-            $loginlocalshowintrosetting : THEME_BOOST_UNION_SETTING_SELECT_NO;
-        if ($showlocalloginintro == THEME_BOOST_UNION_SETTING_SELECT_YES) {
-            // Add marker to show the local login intro to template context.
-            $context->showlocalloginintro = true;
-        }
-
-        // Check if the IDP login intro is enabled.
-        $loginidpshowintrosetting = get_config('theme_boost_union', 'loginidpshowintro');
-        $showidploginintro = ($loginidpshowintrosetting != false) ?
+        // IDP login.
+        if ($context->showidplogin) {
+            $loginidpshowintrosetting = get_config('theme_boost_union', 'loginidpshowintro');
+            $showidploginintro = ($loginidpshowintrosetting != false) ?
                 $loginidpshowintrosetting : THEME_BOOST_UNION_SETTING_SELECT_YES;
-        if ($showidploginintro == THEME_BOOST_UNION_SETTING_SELECT_YES) {
-            // Add marker to show the IDP login intro to template context.
-            $context->showidploginintro = true;
+            if ($showidploginintro == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+                $context->showidploginintro = true;
+                $loginidpintrotext = get_config('theme_boost_union', 'loginidpintrotext');
+                if (!empty($loginidpintrotext)) {
+                    $context->idploginintrotext = format_string($loginidpintrotext);
+                }
+            }
+            $loginidpshowinstructionsetting = get_config('theme_boost_union', 'loginidpshowinstruction');
+            $showidplogininstruction = ($loginidpshowinstructionsetting != false) ?
+                $loginidpshowinstructionsetting : THEME_BOOST_UNION_SETTING_SELECT_NO;
+            if ($showidplogininstruction == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+                $loginidpinstructions = get_config('theme_boost_union', 'loginidpinstructioncontent');
+                if (isset($loginidpinstructions) && !empty($loginidpinstructions)) {
+                    $context->showidplogininstruction = true;
+                    $context->idplogininstructions = format_text($loginidpinstructions, FORMAT_HTML);
+                    $loginidpinstructionposition = get_config('theme_boost_union', 'loginidpinstructionposition');
+                    $context->idplogininstructionposition = ($loginidpinstructionposition === false) ?
+                        THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN : $loginidpinstructionposition;
+                    $context->idplogininstructionsbetween =
+                        ($context->idplogininstructionposition === THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN);
+                    $context->idplogininstructionsbelow =
+                        ($context->idplogininstructionposition === THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BELOW);
+                }
+            }
         }
 
+        // Guest login.
+        if ($context->showguestlogin) {
+            $loginguestshowintrosetting = get_config('theme_boost_union', 'loginguestshowintro');
+            $showguestloginintro = ($loginguestshowintrosetting != false) ?
+                $loginguestshowintrosetting : THEME_BOOST_UNION_SETTING_SELECT_YES;
+            if ($showguestloginintro == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+                $context->showguestloginintro = true;
+                $loginguestintrotext = get_config('theme_boost_union', 'loginguestintrotext');
+                if (!empty($loginguestintrotext)) {
+                    $context->guestloginintrotext = format_string($loginguestintrotext);
+                }
+            }
+            $loginguestshowinstructionsetting = get_config('theme_boost_union', 'loginguestshowinstruction');
+            $showguestlogininstruction = ($loginguestshowinstructionsetting != false) ?
+                $loginguestshowinstructionsetting : THEME_BOOST_UNION_SETTING_SELECT_NO;
+            if ($showguestlogininstruction == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+                $loginguestinstructions = get_config('theme_boost_union', 'loginguestinstructioncontent');
+                if (isset($loginguestinstructions) && !empty($loginguestinstructions)) {
+                    $context->showguestlogininstruction = true;
+                    $context->guestlogininstructions = format_text($loginguestinstructions, FORMAT_HTML);
+                    $loginguestinstructionposition = get_config('theme_boost_union', 'loginguestinstructionposition');
+                    $context->guestlogininstructionposition = ($loginguestinstructionposition === false) ?
+                        THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN : $loginguestinstructionposition;
+                    $context->guestlogininstructionsbetween =
+                        ($context->guestlogininstructionposition === THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN);
+                    $context->guestlogininstructionsbelow =
+                        ($context->guestlogininstructionposition === THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BELOW);
+                }
+            }
+        }
+
+        // Self registration.
+        if ($context->showselfregistration) {
+            $loginselfregistrationshowintrosetting = get_config('theme_boost_union', 'loginselfregistrationshowintro');
+            $showselfregistrationloginintro = ($loginselfregistrationshowintrosetting != false) ?
+                $loginselfregistrationshowintrosetting : THEME_BOOST_UNION_SETTING_SELECT_YES;
+            if ($showselfregistrationloginintro == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+                $context->showselfregistrationloginintro = true;
+                $loginselfregistrationintrotext = get_config('theme_boost_union', 'loginselfregistrationintrotext');
+                if (!empty($loginselfregistrationintrotext)) {
+                    $context->selfregistrationloginintrotext = format_string($loginselfregistrationintrotext);
+                }
+            }
+            $loginselfregistrationshowinstructionsetting = get_config('theme_boost_union', 'loginselfregistrationshowinstruction');
+            $showselfregistrationlogininstruction = ($loginselfregistrationshowinstructionsetting != false) ?
+                $loginselfregistrationshowinstructionsetting : THEME_BOOST_UNION_SETTING_SELECT_NO;
+            if ($showselfregistrationlogininstruction == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+                $loginselfregistrationinstructions = get_config('theme_boost_union', 'loginselfregistrationinstructioncontent');
+                if (isset($loginselfregistrationinstructions) && !empty($loginselfregistrationinstructions)) {
+                    $context->showselfregistrationlogininstruction = true;
+                    $context->selfregistrationlogininstructions = format_text($loginselfregistrationinstructions, FORMAT_HTML);
+                    $loginselfregistrationinstructionposition =
+                            get_config('theme_boost_union', 'loginselfregistrationinstructionposition');
+                    $context->selfregistrationlogininstructionposition = ($loginselfregistrationinstructionposition === false) ?
+                        THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN : $loginselfregistrationinstructionposition;
+                    $context->selfregistrationlogininstructionsbetween =
+                        ($context->selfregistrationlogininstructionposition ===
+                            THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN);
+                    $context->selfregistrationlogininstructionsbelow =
+                        ($context->selfregistrationlogininstructionposition ===
+                            THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BELOW);
+                }
+            }
+        }
+
+        // Get and use login layout setting.
+        $loginlayoutsetting = get_config('theme_boost_union', 'loginlayout');
+        $loginlayout = ($loginlayoutsetting != false) ? $loginlayoutsetting : THEME_BOOST_UNION_SETTING_LOGINLAYOUT_VERTICAL;
+        $context->loginlayout = $loginlayout;
+
+        // Set template marker for each layout type.
+        $context->loginlayoutaccordion = ($loginlayout == THEME_BOOST_UNION_SETTING_LOGINLAYOUT_ACCORDION) ? true : false;
+        $context->loginlayouttabs = ($loginlayout == THEME_BOOST_UNION_SETTING_LOGINLAYOUT_TABS) ? true : false;
+        $context->loginlayoutvertical = ($loginlayout == THEME_BOOST_UNION_SETTING_LOGINLAYOUT_VERTICAL) ? true : false;
+
+        $loginidpsplitsetting = get_config('theme_boost_union', 'loginidpsplit');
+        $separateidppertab = (($loginidpsplitsetting !== false)
+            ? $loginidpsplitsetting : THEME_BOOST_UNION_SETTING_SELECT_NO) === THEME_BOOST_UNION_SETTING_SELECT_YES;
+        // Create sorted login methods array.
+        // This ensures the DOM order matches the visual order, so CSS :first-of-type and :last-of-type work correctly.
+        // Note: The template uses the same loop structure for all layouts, with conditionals for tabs vs vertical/accordion.
+        $loginmethods = [];
+
+        // Local login.
+        if ($context->showlocallogin) {
+            $order = get_config('theme_boost_union', 'loginorderlocal');
+            if ($order === false) {
+                $order = 1; // Default order.
+            }
+            $loginmethods[] = (object)[
+                'id' => 'login-method-local',
+                'name' => 'local',
+                'order' => $order,
+                'type' => 'local',
+                'islocal' => true,
+                'isidp' => false,
+                'isfirsttimesignup' => false,
+                'isguest' => false,
+                'isfirst' => false,
+            ];
+        }
+
+        // IDP login.
+        if ($context->showidplogin) {
+            $order = get_config('theme_boost_union', 'loginorderidp');
+            if ($order === false) {
+                $order = 2; // Default order.
+            }
+            // If the setting to separate IDPs per tab is enabled and if there are identity providers.
+            if ($separateidppertab && !empty($context->identityproviders)) {
+                // Create a separate login method for each IDP, so they can be rendered in separate tabs.
+                // Preserve the original order of the IDPs as provided by Moodle core.
+                $providers = array_values($context->identityproviders);
+                foreach ($providers as $idx => $idp) {
+                    $loginmethods[] = (object)[
+                        'id' => 'login-method-idp-' . $idx,
+                        'name' => 'idp',
+                        'order' => $order,
+                        'type' => 'idp',
+                        'islocal' => false,
+                        'isidp' => true,
+                        'isfirsttimesignup' => false,
+                        'isguest' => false,
+                        'isfirst' => false,
+                        'idpsplit' => true,
+                        'idpsplitfirst' => ($idx === 0),
+                        'identityproviders' => [$idp],
+                        'idpidx' => $idx,
+                    ];
+                }
+
+                // Otherwise, create a single login method for all IDPs,
+                // so they can be rendered in a single tab or an accordion pane.
+            } else {
+                $loginmethods[] = (object)[
+                    'id' => 'login-method-idp',
+                    'name' => 'idp',
+                    'order' => $order,
+                    'type' => 'idp',
+                    'islocal' => false,
+                    'isidp' => true,
+                    'isfirsttimesignup' => false,
+                    'isguest' => false,
+                    'isfirst' => false,
+                ];
+            }
+        }
+
+        // Self registration.
+        if ($context->showselfregistration) {
+            $order = get_config('theme_boost_union', 'loginorderfirsttimesignup');
+            if ($order === false) {
+                $order = 3; // Default order.
+            }
+            $loginmethods[] = (object)[
+                'id' => 'login-method-firsttimesignup',
+                'name' => 'firsttimesignup',
+                'order' => $order,
+                'type' => 'firsttimesignup',
+                'islocal' => false,
+                'isidp' => false,
+                'isfirsttimesignup' => true,
+                'isguest' => false,
+                'isfirst' => false,
+            ];
+        }
+
+        // Guest login.
+        if ($context->showguestlogin) {
+            $order = get_config('theme_boost_union', 'loginorderguest');
+            if ($order === false) {
+                $order = 4; // Default order.
+            }
+            $loginmethods[] = (object)[
+                'id' => 'login-method-guest',
+                'name' => 'guest',
+                'order' => $order,
+                'type' => 'guest',
+                'islocal' => false,
+                'isidp' => false,
+                'isfirsttimesignup' => false,
+                'isguest' => true,
+                'isfirst' => false,
+            ];
+        }
+
+        // Sort login methods by order setting.
+        usort($loginmethods, function ($a, $b) {
+            // Sort by order value first.
+            $orderby = $a->order <=> $b->order;
+
+            // If order values are different, use that for sorting.
+            if ($orderby !== 0) {
+                return $orderby;
+            }
+
+            // Otherwise, if order values are equal, sort by identity-provider order.
+            // This covers as well the case when the admin configured the same order value for multiple login methods
+            // as the spaceship operator also returns 0 when both operands are null/undefined
+            // (which is the case for non-IDP methods that don't have an idpidx).
+            return ($a->idpidx ?? 0) <=> ($b->idpidx ?? 0);
+        });
+
+        // Mark the first method in the sorted array.
+        if (!empty($loginmethods)) {
+            $loginmethods[0]->isfirst = true;
+        }
+
+        // Set login method labels:
+        // - For IDP login methods with IDP split enabled, use the name of the first (or only) IDP as the label.
+        // - For all other methods, use the corresponding tab label setting if tabs or accordion layout is enabled.
+        // Otherwise use no label.
+
+        // Determine if tab labels should be used based on the layout type.
+        $usetablabels = $loginlayout == THEME_BOOST_UNION_SETTING_LOGINLAYOUT_TABS
+            || $loginlayout == THEME_BOOST_UNION_SETTING_LOGINLAYOUT_ACCORDION;
+
+        // Prepare an array of login method keys and their corresponding tab label config names and default strings.
+        // If tab labels are not used for the current layout, this will be an empty array and the loop below will be skipped.
+        $logintablabelconfigs = $usetablabels ? [
+            'local' => [
+                'config' => 'loginlocalloginlabel',
+                'default' => 'loginlocalloginlabelsetting_default',
+            ],
+            'idp' => [
+                'config' => 'loginidploginlabel',
+                'default' => 'loginidploginlabelsetting_default',
+            ],
+            'firsttimesignup' => [
+                'config' => 'loginselfregistrationloginlabel',
+                'default' => 'loginselfregistrationloginlabelsetting_default',
+            ],
+            'guest' => [
+                'config' => 'loginguestloginlabel',
+                'default' => 'loginguestloginlabelsetting_default',
+            ],
+        ] : [];
+
+        // Iterate over the login methods and set the label for each method based on the rules described above.
+        foreach ($loginmethods as $method) {
+            // For IDP login methods with IDP split enabled, use the name of the first (or only) IDP as the label.
+            if (!empty($method->idpsplit)) {
+                $idp = $method->identityproviders[0];
+                $rawname = is_array($idp) ? ($idp['name'] ?? '') : ($idp->name ?? '');
+                $method->label = format_string($rawname);
+                continue;
+            }
+
+            // For all other methods, if tab labels are used for the current layout, use the corresponding tab label setting.
+            // Otherwise use no label.
+            if (!$usetablabels) {
+                continue;
+            }
+            $labelconfig = $logintablabelconfigs[$method->name] ?? null;
+            if ($labelconfig !== null) {
+                $label = format_string(get_config('theme_boost_union', $labelconfig['config']));
+                if ($label === false || $label === '') {
+                    $label = format_string(get_string($labelconfig['default'], 'theme_boost_union'));
+                }
+            } else {
+                $label = '';
+            }
+            $method->label = $label;
+        }
+
+        // Determine the active/primary login method.
+        $primarylogin = get_config('theme_boost_union', 'primarylogin');
+        if ($primarylogin === false) {
+            $primarylogin = 'none';
+        }
+        // Set active method based on layout type.
+        // For tabs: primarylogin match, or first if primarylogin is 'none'.
+        // For accordion: primarylogin match only (no default to first).
+        // For vertical: no active flags.
+        foreach ($loginmethods as $method) {
+            if ($loginlayout == THEME_BOOST_UNION_SETTING_LOGINLAYOUT_TABS) {
+                // Tabs: Default to first method when primarylogin is 'none'.
+                // If IDP split is enabled, also consider the idpsplitfirst flag for IDP methods.
+                if (!empty($method->idpsplit)) {
+                    $method->active = ($primarylogin === 'none' && $method->isfirst) ||
+                        ($primarylogin === 'idp' && !empty($method->idpsplitfirst));
+                } else {
+                    $method->active = ($primarylogin === $method->name) || ($primarylogin === 'none' && $method->isfirst);
+                }
+            } else if ($loginlayout == THEME_BOOST_UNION_SETTING_LOGINLAYOUT_ACCORDION) {
+                // Accordion: Only set active if matched, no default to first.
+                // If IDP split is enabled, also consider the idpsplitfirst flag for IDP methods.
+                if (!empty($method->idpsplit)) {
+                    $method->active = ($primarylogin === 'idp' && !empty($method->idpsplitfirst));
+                } else {
+                    $method->active = ($primarylogin === $method->name);
+                }
+            } else {
+                // Vertical layout: no active flags.
+                $method->active = false;
+            }
+        }
+
+        // Add the loginmethods to the template context.
+        $context->loginmethods = $loginmethods;
+
+        // Add global login instructions.
+        $logininstructionsabove = get_config('theme_boost_union', 'logininstructionsabove');
+        if (!empty($logininstructionsabove)) {
+            $context->logininstructionsabove = format_text($logininstructionsabove, FORMAT_HTML);
+        }
+        $logininstructionsbelow = get_config('theme_boost_union', 'logininstructionsbelow');
+        if (!empty($logininstructionsbelow)) {
+            $context->logininstructionsbelow = format_text($logininstructionsbelow, FORMAT_HTML);
+        }
+
+        // Add JS if the tabs layout is active and enhanced tabs layout behaviour is enabled.
+        $loginenhancedtabslayout = get_config('theme_boost_union', 'loginenhancedtabslayout');
+        if ($context->loginlayouttabs && $loginenhancedtabslayout == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+            $this->page->requires->js_call_amd('theme_boost_union/logintabs', 'init');
+        }
+
+        // Render the login form template with the context.
         return $this->render_from_template('core/loginform', $context);
     }
 
@@ -758,6 +1207,82 @@ class core_renderer extends \theme_boost\output\core_renderer {
     }
 
     /**
+     * Returns course-specific information to be output immediately above content on any course page
+     * (for the current course)
+     *
+     * This renderer function is copied and modified from /lib/classes/output/core_renderer.php
+     *
+     * It is based on the standard_end_of_body_html() function but was split into two parts
+     * (for the additionalhtmlfooter and the unique endtoken) to be requested individually in footer.mustache
+     * in Boost Union.
+     *
+     * @param bool $onlyifnotcalledbefore output content only if it has not been output before
+     * @return string
+     */
+    public function course_content_header_notifications($onlyifnotcalledbefore = false) {
+        static $functioncalled = false;
+        if ($functioncalled && $onlyifnotcalledbefore) {
+            // We have already output the notifications.
+            return '';
+        }
+
+        // Output any session notification.
+        $notifications = \core\notification::fetch();
+
+        $bodynotifications = '';
+        foreach ($notifications as $notification) {
+            $bodynotifications .= $this->render_from_template(
+                $notification->get_template_name(),
+                $notification->export_for_template($this)
+            );
+        }
+
+        $output = html_writer::span($bodynotifications, 'notifications', ['id' => 'user-notifications']);
+
+        $functioncalled = true;
+
+        return $output;
+    }
+
+    /**
+     * Returns course-specific information to be output immediately above content on any course page
+     * (for the current course)
+     *
+     * This renderer function is copied and modified from /lib/classes/output/core_renderer.php
+     *
+     * It is based on the standard_end_of_body_html() function but was split into two parts
+     * (for the additionalhtmlfooter and the unique endtoken) to be requested individually in footer.mustache
+     * in Boost Union.
+     *
+     * @param bool $onlyifnotcalledbefore output content only if it has not been output before
+     * @return string
+     */
+    public function course_content_header_coursecontent($onlyifnotcalledbefore = false) {
+        global $CFG;
+
+        static $functioncalled = false;
+        if ($functioncalled && $onlyifnotcalledbefore) {
+            // We have already output the course content header.
+            return '';
+        }
+
+        $output = '';
+
+        if ($this->page->course->id == SITEID) {
+            // Return immediately and do not include /course/lib.php if not necessary.
+            return $output;
+        }
+
+        require_once($CFG->dirroot . '/course/lib.php');
+        $functioncalled = true;
+        $courseformat = course_get_format($this->page->course);
+        if (($obj = $courseformat->course_content_header()) !== null) {
+            $output .= html_writer::div($courseformat->get_renderer($this->page)->render($obj), 'course-content-header');
+        }
+        return $output;
+    }
+
+    /**
      * The standard tags (typically script tags that are not needed earlier) that
      * should be output after everything else. Designed to be called in theme layout.php files.
      *
@@ -845,6 +1370,49 @@ class core_renderer extends \theme_boost\output\core_renderer {
 
         // Return the parent header() output.
         return $output;
+    }
+
+    /**
+     * Get the course pattern datauri to show on a course card.
+     *
+     * This renderer function is copied and modified from /lib/classes/output/core_renderer.php
+     *
+     * @param int $id Id to use when generating the pattern
+     * @return string datauri or URL to fallback image
+     */
+    public function get_generated_image_for_id($id) {
+        // Get the course overview image source setting.
+        $imagesource = get_config('theme_boost_union', 'courseoverviewimagesource');
+
+        // If not set, use the default (course image with pattern fallback).
+        if (!$imagesource) {
+            $imagesource = THEME_BOOST_UNION_SETTING_COURSEOVERVIEWIMAGESOURCE_COURSEPLUSPATTERN;
+        }
+
+        // Handle the different image source options.
+        switch ($imagesource) {
+            // Option 1: Course image with pattern fallback (default Moodle behavior).
+            case THEME_BOOST_UNION_SETTING_COURSEOVERVIEWIMAGESOURCE_COURSEPLUSPATTERN:
+                return parent::get_generated_image_for_id($id);
+
+            // Option 2: Course image with fallback image.
+            case THEME_BOOST_UNION_SETTING_COURSEOVERVIEWIMAGESOURCE_COURSEPLUSFALLBACK:
+                // This function is called only if there is no course image and the caller is requesting
+                // the course pattern image as fallback. We do not need to check for the course image here,
+                // just return the fallback image instead of the pattern.
+
+                // Try to get and return the fallback image.
+                $fallbackimageurl = theme_boost_union_get_course_overview_fallback_image_url();
+                if ($fallbackimageurl !== null) {
+                    return $fallbackimageurl->out();
+                }
+                // If no fallback image is configured, use the pattern.
+                return parent::get_generated_image_for_id($id);
+
+            // Default fallback.
+            default:
+                return parent::get_generated_image_for_id($id);
+        }
     }
 
     /**

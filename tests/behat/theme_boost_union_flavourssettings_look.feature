@@ -301,7 +301,7 @@ Feature: Configuring the theme_boost_union plugin on the "Flavours" page, applyi
       | center center | 50% 50%  |
 
   @javascript
-  Scenario: Flavours: Brand color - Set the brand color (with a global color not having been set before)
+  Scenario: Flavours: Primary brand color - Set the brand color (with a global color not having been set before)
     When I log in as "admin"
     And I navigate to "Appearance > Boost Union > Flavours" in site administration
     And I click on "Create flavour" "button"
@@ -323,7 +323,7 @@ Feature: Configuring the theme_boost_union plugin on the "Flavours" page, applyi
     Then DOM element ".mytesttext" should have computed style "color" "rgb(255, 0, 0)"
 
   @javascript
-  Scenario: Flavours: Brand color - Set the brand color (with the global setting being overridden)
+  Scenario: Flavours: Primary brand color - Set the primary brand color (with the global setting being overridden)
     Given the following config values are set as admin:
       | config     | value   | plugin            |
       | brandcolor | #FFFFFF | theme_boost_union |
@@ -348,7 +348,7 @@ Feature: Configuring the theme_boost_union plugin on the "Flavours" page, applyi
     Then DOM element ".mytesttext" should have computed style "color" "rgb(255, 0, 0)"
 
   @javascript
-  Scenario: Flavours: Brand color - Do not set the brand color (with a global setting being served properly)
+  Scenario: Flavours: Primary brand color - Do not set the primary brand color (with a global setting being served properly)
     Given the following config values are set as admin:
       | config     | value   | plugin            |
       | brandcolor | #FF0000 | theme_boost_union |
@@ -370,6 +370,250 @@ Feature: Configuring the theme_boost_union plugin on the "Flavours" page, applyi
     And I am on "Course 1" course homepage
     And I should see "My test text"
     Then DOM element ".mytesttext" should have computed style "color" "rgb(255, 0, 0)"
+
+  @javascript
+  Scenario Outline: Flavours: Branded gray tones - Enable branded gray tones (with no global setting being set before)
+    Given the following config values are set as admin:
+      | config     | value   | plugin            |
+      | brandcolor | #FF0000 | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "look_brandedgraytones" to "<brandedgraytones>"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                                       | course |
+      | label    | Label one | <span class="mytesttext text-secondary">My test text</span> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test text"
+    Then DOM element ".mytesttext" should have computed style "color" "<expectedcolor>"
+
+    Examples:
+      | brandedgraytones | expectedcolor      |
+      | yes              | rgb(195, 182, 182) |
+      | no               | rgb(206, 212, 218) |
+
+  @javascript
+  Scenario Outline: Flavours: Branded gray tones - Enable branded gray tones (with the global setting being overridden)
+    Given the following config values are set as admin:
+      | config           | value   | plugin            |
+      | brandcolor       | #FF0000 | theme_boost_union |
+      | brandedgraytones | no      | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "look_brandedgraytones" to "<brandedgraytones>"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                                       | course |
+      | label    | Label one | <span class="mytesttext text-secondary">My test text</span> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test text"
+    Then DOM element ".mytesttext" should have computed style "color" "<expectedcolor>"
+
+    Examples:
+      | brandedgraytones | expectedcolor      |
+      | yes              | rgb(195, 182, 182) |
+      | no               | rgb(206, 212, 218) |
+
+  @javascript
+  Scenario Outline: Flavours: Branded gray tones - Do not change the branded gray tones setting (with a global setting being served properly)
+    Given the following config values are set as admin:
+      | config           | value              | plugin            |
+      | brandcolor       | #FF0000            | theme_boost_union |
+      | brandedgraytones | <brandedgraytones> | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "look_brandedgraytones" to "No change"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                                       | course |
+      | label    | Label one | <span class="mytesttext text-secondary">My test text</span> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test text"
+    Then DOM element ".mytesttext" should have computed style "color" "<expectedcolor>"
+
+    Examples:
+      | brandedgraytones | expectedcolor      |
+      | yes              | rgb(195, 182, 182) |
+      | no               | rgb(206, 212, 218) |
+
+  @javascript
+  Scenario: Flavours: Link color - Set the link color (with a global color not having been set before)
+    Given the following config values are set as admin:
+      | config     | value       | plugin            |
+      | brandcolor | #FF0000     | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "Link brand color" to "#00FF00"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                           | course |
+      | label    | Label one | <a href="#" class="mytestlink">My test link</a> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test link"
+    Then DOM element ".mytestlink" should have computed style "color" "rgb(0, 255, 0)"
+
+  @javascript
+  Scenario: Flavours: Link color - Set the link color (with the global setting being overridden)
+    Given the following config values are set as admin:
+      | config     | value   | plugin            |
+      | brandcolor | #FF0000 | theme_boost_union |
+      | linkcolor  | #FFFFFF | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "Link brand color" to "#00FF00"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                           | course |
+      | label    | Label one | <a href="#" class="mytestlink">My test link</a> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test link"
+    Then DOM element ".mytestlink" should have computed style "color" "rgb(0, 255, 0)"
+
+  @javascript
+  Scenario: Flavours: Link color - Do not set the link color (with a global setting being served properly)
+    Given the following config values are set as admin:
+      | config     | value   | plugin            |
+      | brandcolor | #FF0000 | theme_boost_union |
+      | linkcolor  | #00FF00 | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                           | course |
+      | label    | Label one | <a href="#" class="mytestlink">My test link</a> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test link"
+    Then DOM element ".mytestlink" should have computed style "color" "rgb(0, 255, 0)"
+
+  @javascript
+  Scenario: Flavours: Button brand color - Set the button brand color (with a global color not having been set before)
+    Given the following config values are set as admin:
+      | config     | value       | plugin            |
+      | brandcolor | #FF0000     | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "Button brand color" to "#00FF00"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                                               | course |
+      | label    | Label one | <a href="#" class="mytestbutton btn btn-primary">My test button</a> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test button"
+    Then DOM element ".mytestbutton" should have computed style "background-color" "rgb(0, 255, 0)"
+
+  @javascript
+  Scenario: Flavours: Button brand color - Set the button brand color (with the global setting being overridden)
+    Given the following config values are set as admin:
+      | config           | value   | plugin            |
+      | brandcolor       | #FF0000 | theme_boost_union |
+      | buttonbrandcolor | #FFFFFF | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "Button brand color" to "#00FF00"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                                               | course |
+      | label    | Label one | <a href="#" class="mytestbutton btn btn-primary">My test button</a> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test button"
+    Then DOM element ".mytestbutton" should have computed style "background-color" "rgb(0, 255, 0)"
+
+  @javascript
+  Scenario: Flavours: Button brand color - Do not set the button brand color (with a global setting being served properly)
+    Given the following config values are set as admin:
+      | config           | value   | plugin            |
+      | brandcolor       | #FF0000 | theme_boost_union |
+      | buttonbrandcolor | #00FF00 | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the following "activities" exist:
+      | activity | name      | intro                                                               | course |
+      | label    | Label one | <a href="#" class="mytestbutton btn btn-primary">My test button</a> | C1     |
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    And I should see "My test button"
+    Then DOM element ".mytestbutton" should have computed style "background-color" "rgb(0, 255, 0)"
 
   @javascript
   Scenario Outline: Flavours: Bootstrap colors - Set the Bootstrap colors (with a global color not having been set before)
@@ -663,3 +907,102 @@ Feature: Configuring the theme_boost_union plugin on the "Flavours" page, applyi
     And I should see "Flavours" in the ".admin_settingspage_tabs_with_tertiary .dropdown-toggle" "css_element"
     And I click on ".action-preview" "css_element" in the "My shiny new flavour" "table_row"
     Then I should not see "Preview flavour" in the "#page-header .page-header-headings" "css_element"
+
+  @javascript
+  Scenario: Flavours: Footnote - Set a flavour-specific footnote (with no global footnote set)
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "Footnote" to "My flavour footnote"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    Then "#footnote" "css_element" should exist
+    And I should see "My flavour footnote" in the "#footnote" "css_element"
+
+  @javascript
+  Scenario: Flavours: Footnote - Set a flavour-specific footnote (with global footnote being overridden)
+    Given the following config values are set as admin:
+      | config   | value                     | plugin            |
+      | footnote | <p>My global footnote</p> | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "Footnote" to "My flavour footnote"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    Then "#footnote" "css_element" should exist
+    And I should see "My flavour footnote" in the "#footnote" "css_element"
+    And I should not see "My global footnote" in the "#footnote" "css_element"
+
+  @javascript
+  Scenario: Flavours: Footnote - Do not set a flavour-specific footnote (with global footnote being served properly)
+    Given the following config values are set as admin:
+      | config   | value                     | plugin            |
+      | footnote | <p>My global footnote</p> | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    Then "#footnote" "css_element" should exist
+    And I should see "My global footnote" in the "#footnote" "css_element"
+
+  @javascript
+  Scenario Outline: Flavours: Flavour SCSS should be applied immediately in normal operation as well as if theme designer mode is on (with styles_debug.php).
+    Given the following config values are set as admin:
+      | config            | value    |
+      | themedesignermode | <config> |
+    And all caches are purged
+    And I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "Test Flavour"
+    And I set the field "Raw SCSS" to ".path-course-view #page-header h1 { display: none; }"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    When I am on "Course 1" course homepage
+    And I should not see "Course 1" in the "#page-header .page-header-headings" "css_element"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on ".action-edit" "css_element" in the "Test Flavour" "table_row"
+    And I set the field "Raw SCSS" to ""
+    And I click on "Save changes" "button"
+    # We need to wait a bit here as styles_debug.php does not have a themerev parameter, just an expires HTTP header which
+    # makes the delivered file "outdated" immediately after delivery. However, as Behat clicks faster than a human,
+    # we need to make sure that the next request does not happen before the next realtime second.
+    And I wait "3" seconds
+    And I am on "Course 1" course homepage
+    Then I should see "Course 1" in the "#page-header .page-header-headings" "css_element"
+
+    Examples:
+      | config |
+      | 0      |
+      | 1      |

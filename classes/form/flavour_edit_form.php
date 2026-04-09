@@ -237,6 +237,53 @@ class flavour_edit_form extends \moodleform {
         $mform->addRule('look_brandcolor', get_string('validateerror', 'admin'), 'theme_boost_union_colorpicker_rule');
         $mform->addHelpButton('look_brandcolor', 'flavoursbrandcolor', 'theme_boost_union');
 
+        // Add branded gray tones select element.
+        $brandedgreyoption = [
+            THEME_BOOST_UNION_SETTING_SELECT_NOCHANGE => get_string('nochange', 'theme_boost_union'),
+            THEME_BOOST_UNION_SETTING_SELECT_YES => get_string('yes'),
+            THEME_BOOST_UNION_SETTING_SELECT_NO => get_string('no'),
+        ];
+        $mform->addElement(
+            'select',
+            'look_brandedgraytones',
+            get_string('flavoursbrandedgraytones', 'theme_boost_union'),
+            $brandedgreyoption
+        );
+        $mform->setDefault('look_brandedgraytones', THEME_BOOST_UNION_SETTING_SELECT_NOCHANGE);
+        $mform->addHelpButton('look_brandedgraytones', 'flavoursbrandedgraytones', 'theme_boost_union');
+
+        // Add link colors heading.
+        $context = new \stdClass();
+        $context->title = get_string('linkcolorsheading', 'theme_boost_union', null, true);
+        $mform->addElement(
+            'html',
+            '<div id="adminsettings">' . $OUTPUT->render_from_template('core_admin/setting_heading', $context) . '</div>'
+        );
+
+        // Add link brand color as colorpicker element.
+        $this->check_slasharguments_warning($mform);
+        $mform->addElement(
+            'theme_boost_union_colorpicker',
+            'look_linkcolor',
+            get_string('flavourslinkcolor', 'theme_boost_union'),
+            ['id' => 'colourpicker_linkcolor']
+        );
+        $mform->setType('look_linkcolor', PARAM_TEXT);
+        $mform->addRule('look_linkcolor', get_string('validateerror', 'admin'), 'theme_boost_union_colorpicker_rule');
+        $mform->addHelpButton('look_linkcolor', 'flavourslinkcolor', 'theme_boost_union');
+
+        // Add button brand color as colorpicker element.
+        $this->check_slasharguments_warning($mform);
+        $mform->addElement(
+            'theme_boost_union_colorpicker',
+            'look_buttonbrandcolor',
+            get_string('flavoursbuttonbrandcolor', 'theme_boost_union'),
+            ['id' => 'colourpicker_buttonbrandcolor']
+        );
+        $mform->setType('look_buttonbrandcolor', PARAM_TEXT);
+        $mform->addRule('look_buttonbrandcolor', get_string('validateerror', 'admin'), 'theme_boost_union_colorpicker_rule');
+        $mform->addHelpButton('look_buttonbrandcolor', 'flavoursbuttonbrandcolor', 'theme_boost_union');
+
         // Add Bootstrap colors heading.
         $context = new \stdClass();
         $context->title = get_string('bootstrapcolorsheading', 'theme_boost_union', null, true);
@@ -302,13 +349,7 @@ class flavour_edit_form extends \moodleform {
         );
 
         // Define all activity icon purposes (without the 'other' purpose as this is not branded).
-        $purposes = [MOD_PURPOSE_ADMINISTRATION,
-                MOD_PURPOSE_ASSESSMENT,
-                MOD_PURPOSE_COLLABORATION,
-                MOD_PURPOSE_COMMUNICATION,
-                MOD_PURPOSE_CONTENT,
-                MOD_PURPOSE_INTERACTIVECONTENT,
-                MOD_PURPOSE_INTERFACE];
+        $purposes = theme_boost_union_get_activity_purposes(false);
         // Iterate over all purposes.
         foreach ($purposes as $purpose) {
             // Setting: Activity icon color.
@@ -337,6 +378,7 @@ class flavour_edit_form extends \moodleform {
         );
 
         // Add navbar color select element.
+        $this->check_slasharguments_warning($mform);
         $navbarcoloroptions = [
                 THEME_BOOST_UNION_SETTING_SELECT_NOCHANGE =>
                         get_string('nochange', 'theme_boost_union'),
@@ -367,14 +409,33 @@ class flavour_edit_form extends \moodleform {
         );
 
         // Add custom initial SCSS as textarea element.
+        $this->check_slasharguments_warning($mform);
         $mform->addElement('textarea', 'look_rawscsspre', get_string('flavourscustomscsspre', 'theme_boost_union'), ['rows' => 8]);
         $mform->setType('title', PARAM_TEXT);
         $mform->addHelpButton('look_rawscsspre', 'flavourscustomscsspre', 'theme_boost_union');
 
         // Add custom SCSS as textarea element.
+        $this->check_slasharguments_warning($mform);
         $mform->addElement('textarea', 'look_rawscss', get_string('flavourscustomscss', 'theme_boost_union'), ['rows' => 8]);
         $mform->setType('title', PARAM_TEXT);
         $mform->addHelpButton('look_rawscss', 'flavourscustomscss', 'theme_boost_union');
+
+        // Add content as header element.
+        $mform->addElement('header', 'contentsettingsheader', get_string('configtitlecontent', 'theme_boost_union'));
+        $mform->setExpanded('contentsettingsheader');
+
+        // Add footnote heading.
+        $context = new \stdClass();
+        $context->title = get_string('footnoteheading', 'theme_boost_union', null, true);
+        $mform->addElement(
+            'html',
+            '<div id="adminsettings">' . $OUTPUT->render_from_template('core_admin/setting_heading', $context) . '</div>'
+        );
+
+        // Add flavour footnote as editor element.
+        $mform->addElement('editor', 'content_footnote', get_string('flavoursfootnote', 'theme_boost_union'));
+        $mform->setType('content_footnote', PARAM_CLEANHTML);
+        $mform->addHelpButton('content_footnote', 'flavoursfootnote', 'theme_boost_union');
 
         // Add apply-to-cohort as header element.
         $mform->addElement('header', 'applytocohortheader', get_string('flavoursapplytocohorts', 'theme_boost_union'));

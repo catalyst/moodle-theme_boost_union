@@ -37,6 +37,7 @@ define('THEME_BOOST_UNION_SETTING_HIDENODESPRIMARYNAVIGATION_HOME', 'home');
 define('THEME_BOOST_UNION_SETTING_HIDENODESPRIMARYNAVIGATION_MYHOME', 'myhome');
 define('THEME_BOOST_UNION_SETTING_HIDENODESPRIMARYNAVIGATION_MYCOURSES', 'courses');
 define('THEME_BOOST_UNION_SETTING_HIDENODESPRIMARYNAVIGATION_SITEADMIN', 'siteadminnode');
+define('THEME_BOOST_UNION_SETTING_HIDENODESPRIMARYNAVIGATION_CALENDAR', 'calendar');
 
 define('THEME_BOOST_UNION_SETTING_INFOBANNER_COUNT', 5);
 define('THEME_BOOST_UNION_SETTING_INFOBANNERPAGES_MY', 'mydashboard');
@@ -72,6 +73,9 @@ define('THEME_BOOST_UNION_SETTING_HEIGHT_150PX', '150px');
 define('THEME_BOOST_UNION_SETTING_HEIGHT_200PX', '200px');
 define('THEME_BOOST_UNION_SETTING_HEIGHT_250PX', '250px');
 
+define('THEME_BOOST_UNION_SETTING_COURSEOVERVIEWIMAGESOURCE_COURSEPLUSPATTERN', 'coursepluspattern');
+define('THEME_BOOST_UNION_SETTING_COURSEOVERVIEWIMAGESOURCE_COURSEPLUSFALLBACK', 'courseplusfallback');
+
 define('THEME_BOOST_UNION_SETTING_IMAGEPOSITION_CENTER_CENTER', 'center center');
 define('THEME_BOOST_UNION_SETTING_IMAGEPOSITION_CENTER_TOP', 'center top');
 define('THEME_BOOST_UNION_SETTING_IMAGEPOSITION_CENTER_BOTTOM', 'center bottom');
@@ -102,6 +106,13 @@ define('THEME_BOOST_UNION_SETTING_LINKTARGET_NEWTAB', 'new');
 define('THEME_BOOST_UNION_SETTING_LOGINFORMPOS_CENTER', 'center');
 define('THEME_BOOST_UNION_SETTING_LOGINFORMPOS_LEFT', 'left');
 define('THEME_BOOST_UNION_SETTING_LOGINFORMPOS_RIGHT', 'right');
+
+define('THEME_BOOST_UNION_SETTING_LOGINLAYOUT_VERTICAL', 'vertical');
+define('THEME_BOOST_UNION_SETTING_LOGINLAYOUT_TABS', 'tabs');
+define('THEME_BOOST_UNION_SETTING_LOGINLAYOUT_ACCORDION', 'accordion');
+
+define('THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BETWEEN', 'between');
+define('THEME_BOOST_UNION_SETTING_LOGININSTRUCTIONPOSITION_BELOW', 'below');
 
 define('THEME_BOOST_UNION_SETTING_NAVBARCOLOR_LIGHT', 'light');
 define('THEME_BOOST_UNION_SETTING_NAVBARCOLOR_DARK', 'dark');
@@ -204,6 +215,11 @@ function theme_boost_union_get_main_scss_content($theme) {
 function theme_boost_union_get_pre_scss($theme) {
     global $CFG;
 
+    // During the initial installation, we can't access the config table yet, so we return an empty string.
+    if (during_initial_install()) {
+        return '';
+    }
+
     // Require local library.
     require_once($CFG->dirroot . '/theme/boost_union/locallib.php');
 
@@ -254,6 +270,7 @@ function theme_boost_union_get_pre_scss($theme) {
     $configurable = [
         // Config key => [variableName, ...].
         'brandcolor' => ['primary'],
+        'linkcolor' => ['link-color'],
         'bootstrapcolorsuccess' => ['success'],
         'bootstrapcolorinfo' => ['info'],
         'bootstrapcolorwarning' => ['warning'],
@@ -277,6 +294,7 @@ function theme_boost_union_get_pre_scss($theme) {
     // The key is the configurable and the value is the field name in mdl_theme_boost_union_flavours.
     $flavourconfigurable = [
         'brandcolor' => 'look_brandcolor',
+        'linkcolor' => 'look_linkcolor',
         'bootstrapcolorsuccess' => 'look_bootstrapcolorsuccess',
         'bootstrapcolorinfo' => 'look_bootstrapcolorinfo',
         'bootstrapcolorwarning' => 'look_bootstrapcolorwarning',
@@ -338,14 +356,8 @@ function theme_boost_union_get_pre_scss($theme) {
         $scss .= '$drawer-right-width: ' . get_config('theme_boost_union', 'blockdrawerwidth') . ";\n";
     }
 
-    // Set variables which are influenced by the activityiconcolor* settings.
-    $purposes = [MOD_PURPOSE_ADMINISTRATION,
-            MOD_PURPOSE_ASSESSMENT,
-            MOD_PURPOSE_COLLABORATION,
-            MOD_PURPOSE_COMMUNICATION,
-            MOD_PURPOSE_CONTENT,
-            MOD_PURPOSE_INTERACTIVECONTENT,
-            MOD_PURPOSE_INTERFACE];
+    // Set variables which are influenced by the activityiconcolor* settings (without the 'other' purpose as this is not branded).
+    $purposes = theme_boost_union_get_activity_purposes(false);
     // Iterate over all purposes.
     foreach ($purposes as $purpose) {
         // Get color setting from global settings.
@@ -379,6 +391,73 @@ function theme_boost_union_get_pre_scss($theme) {
         }
     }
 
+    // Set custom Boost Union SCSS variable: Primary button color.
+    // If no dedicated button color is configured, the variable is not added to the stack.
+    // In this case, the default color from Boost (i.e. the primary color) will be applied to the buttons.
+    $buttonbrandcolor = get_config('theme_boost_union', 'buttonbrandcolor');
+    if ($flavourid != null) {
+        $buttonbrandcolorflavour = theme_boost_union_get_flavour_config_item_for_flavourid($flavourid, 'look_buttonbrandcolor');
+        if (!empty($buttonbrandcolorflavour)) {
+            $buttonbrandcolor = $buttonbrandcolorflavour;
+        }
+    }
+    if (!empty($buttonbrandcolor)) {
+        $scss .= '$bu-button-brand-color: ' . $buttonbrandcolor . ";\n";
+    }
+
+    // Set custom Boost Union SCSS variables: Branded gray tones.
+    // When enabled, Bootstrap's $gray-100 to $gray-900 are derived from the primary brand color
+    // instead of neutral grays, creating a subtle brand-color harmony across gray elements.
+    $brandedgraytones = get_config('theme_boost_union', 'brandedgraytones');
+    if ($flavourid != null) {
+        $brandedgraytonesflavour = theme_boost_union_get_flavour_config_item_for_flavourid($flavourid, 'look_brandedgraytones');
+        if (!empty($brandedgraytonesflavour) && $brandedgraytonesflavour !== THEME_BOOST_UNION_SETTING_SELECT_NOCHANGE) {
+            $brandedgraytones = $brandedgraytonesflavour;
+        }
+    }
+    if ($brandedgraytones == THEME_BOOST_UNION_SETTING_SELECT_YES) {
+        // Resolve the effective brand color (may be overridden by a flavour).
+        $effectivebrandcolor = get_config('theme_boost_union', 'brandcolor');
+        if ($flavourid != null) {
+            $flavourbrandcolor = theme_boost_union_get_flavour_config_item_for_flavourid($flavourid, 'look_brandcolor');
+            if (!empty($flavourbrandcolor)) {
+                $effectivebrandcolor = $flavourbrandcolor;
+            }
+        }
+        // Only add the branded gray tones SCSS if a brand color is actually configured,
+        // because the SCSS functions below require $primary to be defined in the pre-SCSS stack.
+        if (!empty($effectivebrandcolor)) {
+            $scss .= <<<'SCSS'
+// Extract the hue from the primary brand color and use it to tint all
+// Bootstrap gray steps, giving them a subtle brand-color harmony.
+$bu-brand-hue: hue($primary);
+
+@function bu-brand-gray($lightness) {
+    @return hsl($bu-brand-hue, 10%, $lightness);
+}
+
+$gray-100: bu-brand-gray(92%);
+$gray-200: bu-brand-gray(86%);
+$gray-300: bu-brand-gray(80%);
+$gray-400: bu-brand-gray(74%);
+$gray-500: bu-brand-gray(64%);
+$gray-600: bu-brand-gray(42%);
+$gray-700: bu-brand-gray(31%);
+$gray-800: bu-brand-gray(23%);
+$gray-900: bu-brand-gray(15%);
+SCSS;
+        }
+    }
+
+    // Set custom Boost Union SCSS variable: The login container width.
+    $logincontainerwidth = get_config('theme_boost_union', 'logincontainerwidth');
+    // If the setting is not set.
+    if (!$logincontainerwidth) {
+        // Set the variable to the default setting to make sure that the SCSS variable does not remain uninitialized.
+        $logincontainerwidth = '500px';
+    }
+    $scss .= '$bu-logincontainer-width: ' . $logincontainerwidth . ";\n";
+
     // Set custom Boost Union SCSS variable: The block region outside left width.
     $blockregionoutsideleftwidth = get_config('theme_boost_union', 'blockregionoutsideleftwidth');
     // If the setting is not set.
@@ -386,16 +465,16 @@ function theme_boost_union_get_pre_scss($theme) {
         // Set the variable to the default setting to make sure that the SCSS variable does not remain uninitialized.
         $blockregionoutsideleftwidth = '300px';
     }
-    $scss .= '$blockregionoutsideleftwidth: ' . $blockregionoutsideleftwidth . ";\n";
+    $scss .= '$bu-blockregionoutsideleftwidth: ' . $blockregionoutsideleftwidth . ";\n";
 
-    // Set custom Boost Union SCSS variable: The block region outside left width.
+    // Set custom Boost Union SCSS variable: The block region outside right width.
     $blockregionoutsiderightwidth = get_config('theme_boost_union', 'blockregionoutsiderightwidth');
     // If the setting is not set.
     if (!$blockregionoutsiderightwidth) {
         // Set the variable to the default setting to make sure that the SCSS variable does not remain uninitialized.
         $blockregionoutsiderightwidth = '300px';
     }
-    $scss .= '$blockregionoutsiderightwidth: ' . $blockregionoutsiderightwidth . ";\n";
+    $scss .= '$bu-blockregionoutsiderightwidth: ' . $blockregionoutsiderightwidth . ";\n";
 
     // Add custom Boost Union SCSS variable as goody for designers: $themerev.
     $scss .= '$themerev: ' . $CFG->themerev . ";\n";
@@ -424,6 +503,11 @@ function theme_boost_union_get_pre_scss($theme) {
  */
 function theme_boost_union_get_extra_scss($theme) {
     global $CFG;
+
+    // During the initial installation, we can't access the config table yet, so we return an empty string.
+    if (during_initial_install()) {
+        return '';
+    }
 
     // Require the necessary libraries.
     require_once($CFG->dirroot . '/course/lib.php');
@@ -581,9 +665,6 @@ function theme_boost_union_get_extra_scss($theme) {
     // Setting: Course overview block.
     $content .= theme_boost_union_get_scss_courseoverview_block($theme);
 
-    // Setting: Login order.
-    $content .= theme_boost_union_get_scss_login_order($theme);
-
     return $content;
 }
 
@@ -682,6 +763,7 @@ function theme_boost_union_pluginfile($course, $cm, $context, $filearea, $args, 
         $context->contextlevel == CONTEXT_SYSTEM && ($filearea === 'backgroundimage' ||
         $filearea === 'loginbackgroundimage' || $filearea === 'additionalresources' ||
                 $filearea === 'customfonts' || $filearea === 'courseheaderimagefallback' ||
+                $filearea === 'courseoverviewimagefallback' ||
                 $filearea === 'touchiconsios' || $filearea === 'uploadedsnippets' ||
                 preg_match("/tilebackgroundimage[2-9]|1[0-2]?/", $filearea) ||
                 preg_match("/slidebackgroundimage[2-9]|1[0-2]?/", $filearea))
@@ -907,24 +989,54 @@ function theme_boost_union_alter_css_urls(&$urls) {
     // If any flavour applies to this page.
     $flavour = theme_boost_union_get_flavour_which_applies();
     if ($flavour != null) {
+        // If theme designer mode is on.
+        if (!empty($CFG->themedesignermode)) {
+            // Then styles_debug.php is used.
+            $stylesfilename = 'styles_debug.php';
+
+            // Currently, slasharguments are not supported in theme designer mode as the file styles_debug.php does not support
+            // slasharguments. We must respect that.
+            $noslashargumentsallowed = true;
+
+            // Otherwise, in normal mode.
+        } else {
+            // Then styles.php is used.
+            $stylesfilename = 'styles.php';
+
+            // Only slasharguments are supported in normal mode as this is Moodle core standard and as we do not want to maintain
+            // fallback code for non-slasharguments.
+            // A warning is shown on the flavour edit page if slasharguments is off.
+            $noslashargumentsallowed = false;
+        }
+
         // Iterate over the CSS URLs.
         foreach (array_keys($urls) as $i) {
             // If we have a moodle_url object.
             if ($urls[$i] instanceof \core\url) {
                 // Take the flavour CSS URL and escape it to be used in a regular expression.
-                $pathstyles = preg_quote($CFG->wwwroot . '/theme/styles.php', '|');
+                $pathstyles = preg_quote($CFG->wwwroot . '/theme/' . $stylesfilename, '|');
                 // Replace the CSS URL with the flavour CSS URL.
-                // As a result, the file /theme/boost_union/flavours/styles.php is called instead of /theme/styles.php and the
-                // flavour ID is injected into the URL parameters.
+                // As a result, the file /theme/boost_union/flavours/<stylesfilename>.php is called instead of
+                // /theme/<stylesfilename>.php and the flavour ID is injected into the URL parameters.
                 if (preg_match("|^$pathstyles(/_s)?(.*)$|", $urls[$i]->out(false), $matches)) {
-                    // Do the whole operation only if slasharguments are enabled.
-                    // A warning is shown on the flavour edit page if slasharguments is off.
-                    if (!empty($CFG->slasharguments)) {
+                    // If slasharguments are not allowed (i.e. in theme designer mode), use query parameters.
+                    if ($noslashargumentsallowed == true) {
+                        $params = $urls[$i]->params();
+                        $params['flavourid'] = $flavour->id;
+                        $urls[$i] = new moodle_url('/theme/boost_union/flavours/' . $stylesfilename);
+                        $urls[$i]->params($params);
+
+                        // Otherwise, if slasharguments are allowed, use them.
+                    } else if ($noslashargumentsallowed == false && !empty($CFG->slasharguments)) {
                         $parts = explode('/', $matches[2]);
                         $parts[3] = $flavour->id . '/' . $parts[3];
-                        $urls[$i] = new moodle_url('/theme/boost_union/flavours/styles.php');
+                        $urls[$i] = new moodle_url('/theme/boost_union/flavours/' . $stylesfilename);
                         $urls[$i]->set_slashargument($matches[1] . join('/', $parts));
                     }
+
+                    // The case that slasharguments are not allowed but the current URL has slasharguments is not handled
+                    // as this should not happen in normal operation.
+                    // In this case, we accept that the flavour CSS will not work.
                 }
             }
         }
