@@ -829,8 +829,8 @@ Feature: Configuring the theme_boost_union plugin on the "Flavours" page, applyi
       | setting      | classes                 |
       | light        | navbar-light bg-white   |
       | dark         | navbar-dark bg-dark     |
-      | primarylight | navbar-light bg-primary |
-      | primarydark  | navbar-dark bg-primary  |
+      | coloredlight | navbar-light bg-primary |
+      | coloreddark  | navbar-dark bg-primary  |
 
   @javascript
   Scenario Outline: Setting: Navbar color - Set the navbar color (with the global setting being overridden)
@@ -884,6 +884,100 @@ Feature: Configuring the theme_boost_union plugin on the "Flavours" page, applyi
     Examples:
       | setting | classes             |
       | dark    | navbar-dark bg-dark |
+
+  @javascript
+  Scenario: Setting: Navbar tint - Set the navbar tint color in a flavour (with no global tint having been set before)
+    Given the following config values are set as admin:
+      | config      | value       | plugin            |
+      | navbarcolor | coloreddark | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "Navbar tint" to "#FF0000"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    # Reloading the page is necessary to ensure that the navbar color is applied, as sometimes it might not appear on the first load due to caching.
+    And I reload the page
+    Then DOM element ".navbar" should have computed style "background-color" "rgb(255, 0, 0)"
+
+  @javascript
+  Scenario: Setting: Navbar tint - Set the navbar tint color (with the global setting being overridden)
+    Given the following config values are set as admin:
+      | config      | value        | plugin            |
+      | navbarcolor | coloredlight | theme_boost_union |
+      | navbartint  | #FFFFFF      | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I set the field "Navbar tint" to "#FF0000"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    # Reloading the page is necessary to ensure that the navbar color is applied, as sometimes it might not appear on the first load due to caching.
+    And I reload the page
+    Then DOM element ".navbar" should have computed style "background-color" "rgb(255, 0, 0)"
+
+  @javascript
+  Scenario: Setting: Navbar tint - Do not set the navbar tint (with a global setting being served properly)
+    Given the following config values are set as admin:
+      | config      | value        | plugin            |
+      | navbarcolor | coloredlight | theme_boost_union |
+      | navbartint  | #FF0000      | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    # Reloading the page is necessary to ensure that the navbar color is applied, as sometimes it might not appear on the first load due to caching.
+    And I reload the page
+    Then DOM element ".navbar" should have computed style "background-color" "rgb(255, 0, 0)"
+
+  @javascript
+  Scenario: Setting: Navbar tint - Use the primary brand color as fallback when no tint is set in global settings or flavour
+    Given the following config values are set as admin:
+      | config      | value        | plugin            |
+      | navbarcolor | coloredlight | theme_boost_union |
+      | brandcolor  | #FF0000      | theme_boost_union |
+    When I log in as "admin"
+    And I navigate to "Appearance > Boost Union > Flavours" in site administration
+    And I click on "Create flavour" "button"
+    And I should see "Create flavour" in the "#page-header h1" "css_element"
+    And I expand all fieldsets
+    And I set the field "Title" to "My shiny new flavour"
+    And I select "Yes" from the "Apply to course categories" singleselect
+    And I click on ".form-autocomplete-downarrow" "css_element" in the "#fitem_id_applytocategories_ids" "css_element"
+    And I click on "Cat 1" item in the autocomplete list
+    And I press the escape key
+    And I click on "Save changes" "button"
+    And the theme cache is purged and the theme is reloaded
+    When I log in as "admin"
+    And I am on "Course 1" course homepage
+    # Reloading the page is necessary to ensure that the navbar color is applied, as sometimes it might not appear on the first load due to caching.
+    And I reload the page
+    Then DOM element ".navbar" should have computed style "background-color" "rgb(255, 0, 0)"
 
   @javascript
   Scenario: Flavours: Raw (initial) SCSS - Add custom SCSS to the page
@@ -996,9 +1090,10 @@ Feature: Configuring the theme_boost_union plugin on the "Flavours" page, applyi
     And I set the field "Raw SCSS" to ""
     And I click on "Save changes" "button"
     # We need to wait a bit here as styles_debug.php does not have a themerev parameter, just an expires HTTP header which
-    # makes the delivered file "outdated" immediately after delivery. However, as Behat clicks faster than a human,
-    # we need to make sure that the next request does not happen before the next realtime second.
-    And I wait "3" seconds
+    # makes the delivered file "outdated" after delivery. This is based on THEME_DESIGNER_CACHE_LIFETIME which is 10 seconds
+    # by default. However, as Behat clicks faster than a human, we need to make sure that the next request does not happen
+    # before that time.
+    And I wait "12" seconds
     And I am on "Course 1" course homepage
     Then I should see "Course 1" in the "#page-header .page-header-headings" "css_element"
 

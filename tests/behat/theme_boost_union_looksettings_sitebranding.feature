@@ -27,7 +27,7 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
     And I press "Save changes"
     And Behat debugging is enabled
     And I log out
-    And I click on "Log in" "link" in the ".logininfo" "css_element"
+    And I am on login page
     # We can't check the uploaded image file visually, but we can verify that the compact logo is shipped from the theme_boost_union global logo filearea.
     Then "//div[@id='loginlogo']//img[@id='logoimage'][contains(@src, 'pluginfile.php/1/theme_boost_union/logo')][contains(@src, 'moodlelogo.png')]" "xpath_element" should exist
 
@@ -35,7 +35,7 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
   Scenario: Setting: Logo - Do not upload a custom logo to the theme (countercheck)
     When I log in as "admin"
     And I log out
-    And I click on "Log in" "link" in the ".logininfo" "css_element"
+    And I am on login page
     Then "#loginlogo #logoimage" "css_element" should not exist
 
   @javascript @_file_upload
@@ -44,7 +44,7 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
     And I navigate to "Appearance > Logos" in site administration
     And I upload "theme/boost_union/tests/fixtures/moodlelogo.png" file to "Logo" filemanager
     And I log out
-    And I click on "Log in" "link" in the ".logininfo" "css_element"
+    And I am on login page
     Then "#loginlogo #logoimage" "css_element" should not exist
 
   @javascript @_file_upload
@@ -57,7 +57,7 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
     And I press "Save changes"
     And Behat debugging is enabled
     And I log out
-    And I click on "Log in" "link" in the ".logininfo" "css_element"
+    And I am on login page
     Then "//div[@id='loginlogo']//img[@id='logoimage'][contains(@src, 'pluginfile.php/1/theme_boost_union/logo/0x200/')][contains(@src, 'moodlelogo.png')]" "xpath_element" should exist
 
   @javascript @_file_upload
@@ -70,7 +70,7 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
     And I press "Save changes"
     And Behat debugging is enabled
     And I log out
-    And I click on "Log in" "link" in the ".logininfo" "css_element"
+    And I am on login page
     Then "//div[@id='loginlogo']//img[@id='logoimage'][contains(@src, 'pluginfile.php/1/theme_boost_union/logo/1/')][contains(@src, 'moodlelogo.svg')]" "xpath_element" should exist
 
   @javascript @_file_upload
@@ -344,5 +344,52 @@ Feature: Configuring the theme_boost_union plugin for the "Site branding" tab on
       | setting      | classes                 |
       | light        | navbar-light bg-white   |
       | dark         | navbar-dark bg-dark     |
-      | primarylight | navbar-light bg-primary |
-      | primarydark  | navbar-dark bg-primary  |
+      | coloredlight | navbar-light bg-primary |
+      | coloreddark  | navbar-dark bg-primary  |
+
+  @javascript
+  Scenario Outline: Setting: Navbar tint - Set the navbar tint color (for the colored navbar variants)
+    Given the following config values are set as admin:
+      | config      | value             | plugin            |
+      | navbarcolor | <navbarcolor>     | theme_boost_union |
+      | navbartint  | <configuredcolor> | theme_boost_union |
+    And the theme cache is purged and the theme is reloaded
+    When I log in as "admin"
+    # Reloading the page is necessary to ensure that the navbar color is applied, as sometimes it might not appear on the first load due to caching.
+    And I reload the page
+    Then DOM element ".navbar.bg-primary" should have computed style "background-color" "<expectedcolor>"
+
+    Examples:
+      | navbarcolor  | configuredcolor | expectedcolor    |
+      | coloredlight | #FF0000         | rgb(255, 0, 0)   |
+      | coloreddark  | #FF00FF         | rgb(255, 0, 255) |
+
+  @javascript
+  Scenario Outline: Setting: Navbar tint - Do not apply the tint (countercheck for non-colored navbar variants)
+    Given the following config values are set as admin:
+      | config      | value         | plugin            |
+      | navbarcolor | <navbarcolor> | theme_boost_union |
+      | navbartint  | #FF0000       | theme_boost_union |
+    And the theme cache is purged and the theme is reloaded
+    When I log in as "admin"
+    # Reloading the page is necessary to ensure that the navbar color is applied, as sometimes it might not appear on the first load due to caching.
+    And I reload the page
+    Then DOM element ".navbar" should not have computed style "background-color" "rgb(255, 0, 0)"
+
+    Examples:
+      | navbarcolor |
+      | light       |
+      | dark        |
+
+  @javascript
+  Scenario: Setting: Navbar tint - Use the primary brand color as fallback when no tint is set
+    Given the following config values are set as admin:
+      | config      | value        | plugin            |
+      | navbarcolor | coloredlight | theme_boost_union |
+      | brandcolor  | #FF0000      | theme_boost_union |
+      | navbartint  |              | theme_boost_union |
+    And the theme cache is purged and the theme is reloaded
+    When I log in as "admin"
+    # Reloading the page is necessary to ensure that the navbar color is applied, as sometimes it might not appear on the first load due to caching.
+    And I reload the page
+    Then DOM element ".navbar" should have computed style "background-color" "rgb(255, 0, 0)"
