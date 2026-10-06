@@ -4,8 +4,11 @@ moodle-theme_boost_union
 Changes
 -------
 
-### Unreleased
+### v4.5-r48
 
+* 2026-10-05 - Tests: Fix stylelint issue for theme/boost_union/tests/fixtures/extscss-invalid.scss, resolves #695
+* 2026-10-05 - Bugfix: The login background images were fetched in an undefined order which could result in a mismatch between the displayed image and its image text and in a sporadically failing Behat test, resolves #950
+* 2026-10-05 - Tests: Stabilize the activity icon color Behat tests which failed sporadically as the CSS filter comparison was stricter than the rounding of the generated filter values, resolves #793
 * 2026-10-05 - Tests: Stabilize the smart menu dynamic courses test which failed sporadically on Github actions, resolves #949
 * 2026-10-04 - Tests: Stabilize the flavour SCSS test in theme designer mode which failed sporadically on Github actions, resolves #1415
 * 2026-10-04 - Bugfix: ESLint error in drawers.mustache: Trailing spaces not allowed, resolves #1413
