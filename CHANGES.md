@@ -6,6 +6,16 @@ Changes
 
 ### Unreleased
 
+* 2026-10-10 - Bugfix: Validate the block region width settings for the 'Outside (left)' and 'Outside (right)' regions as invalid values would break the SCSS compilation, resolves #1433
+* 2026-10-10 - Bugfix: Anchor the regular expressions which validate the width settings properly as they accepted values like '10%)' which would break the SCSS compilation, resolves #1433
+
+### v4.5-r49
+
+* 2026-10-08 - Bugfix: Fix the database default of the smart menu type field which was set to the card type instead of the list type, resolves #1431
+* 2026-10-08 - Tests: Set the theme preset directly instead of saving it in the settings form in the preset inheritance Behat test as the form validation might race with the following steps
+* 2026-10-07 - Bugfix: Correctly escape special characters in static page titles, resolves #1382
+* 2026-10-07 - Improvement: Add a setting to hide the footnote when a page is printed, resolves #1381
+* 2026-10-07 - Improvement: Report the Boost Union recommendations check only as info instead of warning on the Checks API status page if Boost Union is not the active theme, resolves #1387
 * 2026-10-07 - Improvement: Add a 'Hide' option to the activity & section navigation elements setting to hide the activity navigation also in course formats which do not use the course index, and clarify the setting description, resolves #1403
 
 ### v4.5-r48
