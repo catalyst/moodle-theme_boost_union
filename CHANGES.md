@@ -4,6 +4,15 @@ moodle-theme_boost_union
 Changes
 -------
 
+### v4.5-r53
+
+* 2026-11-20 - Tests: Verify the bottom alignment of the smart menu card title by comparing element positions instead of the computed style of the align-items property, as Chrome 158 reports this value as "flow-end" instead of "flex-end" and the Behat scenario failed on Github actions, resolves #1489.
+* 2026-11-20 - Cleanup: Remove the unused file serving of the 'snippets' file area from theme_boost_union_pluginfile(), as uploaded SCSS snippets are stored in and served from the 'uploadedsnippets' file area.
+* 2026-11-20 - Improvement: Unlock the session before serving the logo, favicon and other theme setting files as well as the flavour logo and favicon files, as parallel requests of the same user were blocked during the file serving otherwise.
+* 2026-11-19 - Security: Only accept referrers which are located on the Moodle site as redirect target of the accessibility support form, as the form redirected to external referrers after it was submitted or cancelled otherwise (open redirect).
+* 2026-11-19 - Improvement: Harden the evaluation of the cookie which preselects the organisation in the internal Shibboleth WAYF on the login page and add Behat tests for the organisation selector.
+* 2026-11-18 - Bugfix: Prevent that rendering the primary-drawer-mobile-child mustache template exceeds the allowed memory size, resolves #874
+
 ### v4.5-r52
 
 * 2026-11-12 - Bugfix: Declare and export the user preferences which are stored by the theme (dismissed info banners and the flags to purge the flavours and smart menus caches) in the privacy provider, as the privacy provider was declared as null provider and these preferences were neither listed in the privacy registry nor contained in user data exports, resolves #1475
